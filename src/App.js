@@ -8,8 +8,9 @@ import {
 import { Delete, Edit, Add } from '@mui/icons-material';
 
 const App = () => {
+  const excludes = [ 'created_on', 'created_by','modified_on', 'modified_by', 'status', 'id'];
   const [tables] = useState([
-    'user', 'product', 'order', 'role', 'faq', 'producttype', 'subtype', 'address', 'rating', 'transaction', 'cart', 'review'
+    'user', 'product', 'order', 'role', 'faq', 'producttype', 'subtype', 'address', 'transaction', 'cart'
   ]);
   const [selectedTable, setSelectedTable] = useState('');
   const [data, setData] = useState([]);
@@ -155,7 +156,7 @@ const App = () => {
                   </TableCell>
                   {Object.entries(filterFields(row)).map(([key, value]) => (
                     <TableCell key={key}>
-                      {key.includes('_on') ? formatDate(value) : JSON.stringify(value)}
+                      {key.includes('_on') || key.includes('_date') ? formatDate(value) : JSON.stringify(value)}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -177,7 +178,7 @@ const App = () => {
             <p>Are you sure you want to delete this record?</p>
           ) : (
             data.length > 0 &&
-            Object.keys(filterFields(data[0])).map((key) => (
+            Object.keys(filterFields(data[0])).map((key) => !excludes.includes(key) && (
               <TextField
                 key={key}
                 name={key}
