@@ -65,7 +65,7 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingAll, setIsFetchingAll] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  
+  let api;
   // Get server URL from localStorage or use default
   const getBaseUrl = () => {
     return localStorage.getItem('serverUrl') || 'http://localhost:5000';
@@ -87,13 +87,21 @@ const App = () => {
   const fetchTables = async () => {
     try {
       setIsLoading(true);
-      const reqInterceptor = axios.interceptors.request.use((config) => {
-        const token = localStorage.getItem("token");
-        if (token) config.headers.Authorization = `Bearer ${token}`;
+      api = axios.create({
+        baseURL: getBaseUrl(),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      api.interceptors.request.use((config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
       });
       
-      const resInterceptor = axios.interceptors.response.use(
+      api.interceptors.response.use(
         (res) => res,
         (err) => {
           if (err.response?.status === 401) {
@@ -109,9 +117,7 @@ const App = () => {
         }
       );
     
-      axios.interceptors.request.eject(reqInterceptor);
-      axios.interceptors.response.eject(resInterceptor);
-      const res = await axios.get(`${getBaseUrl()}/allroutes`);
+      const res = await api.get(`/allroutes`);
       setTables(
         res.data.data
           .map((d) => d.replace("/", ""))
@@ -138,7 +144,36 @@ const App = () => {
     
     setIsLoading(true);
     try {
-      const res = await axios.get(`${getBaseUrl()}/${table}`);
+      api = axios.create({
+        baseURL: getBaseUrl(),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      api.interceptors.request.use((config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      });
+      
+      api.interceptors.response.use(
+        (res) => res,
+        (err) => {
+          if (err.response?.status === 401) {
+            localStorage.removeItem("token");
+            setIsLoggedIn(false);
+            showSnackbar('Session expired. Please log in again.', 'error');
+          } else if (err.response?.data?.message) {
+            showSnackbar(err.response.data.message, 'error');
+          } else {
+            showSnackbar('An error occurred', 'error');
+          }
+          return Promise.reject(err);
+        }
+      );
+      const res = await api.get(`/${table}`);
       setData(res.data.data || []);
     } catch (err) {
       console.error(`Error fetching ${table}:`, err);
@@ -159,7 +194,7 @@ const App = () => {
     try {
       for (const table of tables) {
         try {
-          const res = await axios.get(`${getBaseUrl()}/${table}`);
+          const res = await api.get(`/${table}`);
           results[table] = res.data.data || [];
           if (res.status === 200) success++;
         } catch (error) {
@@ -213,11 +248,11 @@ const App = () => {
         }
       });
       if (dialogType === "add") {
-        await axios.post(`${getBaseUrl()}/${selectedTable}`, formData);
+        await api.post(`/${selectedTable}`, formData);
         showSnackbar('Record added successfully', 'success');
       } else if (dialogType === "edit" && selectedRow) {
-        await axios.put(
-          `${getBaseUrl()}/${selectedTable}/${selectedRow.id}`,
+        await api.put(
+          `/${selectedTable}/${selectedRow.id}`,
           formData
         );
         showSnackbar('Record updated successfully', 'success');
@@ -237,7 +272,7 @@ const App = () => {
     
     setIsLoading(true);
     try {
-      await axios.delete(`${getBaseUrl()}/${selectedTable}/${selectedRow.id}`);
+      await api.delete(`/${selectedTable}/${selectedRow.id}`);
       showSnackbar('Record deleted successfully', 'success');
       handleDialogClose();
       fetchData(selectedTable);
